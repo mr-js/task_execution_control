@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{{ url_for('static', filename='bootstrap.min.css') }}" rel="stylesheet" media="screen">
+    <link href="{{ url_for('static', filename='jquery-ui.min.css') }}" rel="stylesheet" media="screen">
+    <link href="{{ url_for('static', filename='custom.css') }}" rel="stylesheet" media="screen">
+    <title>Work Execution Control</title>
+</head>
+
+<body class="body">
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/jquery-ui.min.js') }}"></script>
+    <h1>Task List</h1>
+    <ul id="task-list"></ul>
+    <form id="task-form">
+        <input type="text" name="data" id="task-data" required>
+        <button type="submit">Add Task</button>
+    </form>
+
+    <script>
+        function renderTasks() {
+            $.getJSON('/api/tasks', function (data) {
+                var taskList = $('#task-list');
+                taskList.empty(); // Clear the list
+                $.each(data.tasks, function (index, task) {
+                    taskList.append(`
+                        <li id="task-${task.id}">
+                            ${task.id}: ${task.data}
+                            <button onclick="updateTask('${task.id}')">Update</button>
+                            <button onclick="deleteTask('${task.id}')">Delete</button>
+                        </li>
+                    `);
+                });
+            });
+        }
+
+        function updateTask(taskId) {
+            var newData = prompt("Enter new task data:");
+            if (newData) {
+                $.ajax({
+                    url: `/api/task`,
+                    type: 'PUT',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ id: taskId, data: newData }),
+                    success: function (response) {
+                        renderTasks(); // Re-render tasks after updating
+                    },
+                    error: function () {
+                        alert('Error updating task');
+                    }
+                });
+            }
+        }
+
+        function deleteTask(taskId) {
+            $.ajax({
+                url: `/api/task`,
+                type: 'DELETE',
+                contentType: 'application/json',
+                data: JSON.stringify({ id: taskId }),
+                success: function (response) {
+                    renderTasks(); // Re-render tasks after deleting
+                },
+                error: function () {
+                    alert('Error deleting task');
+                }
+            });
+        }
+
+        $(document).ready(function () {
+            renderTasks(); // Render tasks on page load
+
+            $('#task-form').on('submit', function (event) {
+                event.preventDefault();
+                var taskData = $('#task-data').val();
+                $.ajax({
+                    url: '/api/task',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ data: taskData }),
+                    success: function (response) {
+                        renderTasks(); // Re-render tasks after adding a new one
+                    },
+                    error: function () {
+                        alert('Error adding task');
+                    }
+                });
+            });
+
+            // POLLING UPDATE METHOD
+            // setInterval(renderTasks, 5000);
+
+            // SSE UPDATE METHOD
+            const eventSource = new EventSource('/stream');
+            eventSource.onmessage = function (event) {
+                if (event.data === 'update') {
+                    renderTasks();
+                }
+            };
+        });
+    </script>
+
+</body>
+
+</html>
